@@ -23,7 +23,9 @@ async function run(): Promise<void> {
     repository: core.getInput(Inputs.Repository, {required: false}),
     runID: parseInt(core.getInput(Inputs.RunID, {required: false})),
     pattern: core.getInput(Inputs.Pattern, {required: false}),
-    mergeMultiple: core.getBooleanInput(Inputs.MergeMultiple, {required: false})
+    mergeMultiple: core.getBooleanInput(Inputs.MergeMultiple, {required: false}),
+    maxRetries: parseInt(core.getInput(Inputs.MaxTries, {required: false})),
+    retryDelayMs: parseInt(core.getInput(Inputs.RetryDelayMs, {required: false}))
   }
 
   if (!inputs.path) {
@@ -60,20 +62,33 @@ async function run(): Promise<void> {
   if (isSingleArtifactDownload) {
     core.info(`Downloading single artifact`)
 
-    const {artifact: targetArtifact} = await artifactClient.getArtifact(
-      inputs.name,
-      options
-    )
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+    
+    let downloaded = false;
+    for (let i = 0; i < inputs.maxRetries; i++) {
+      core.debug(`Artifact ${inputs.name} download attempt ${i}/${inputs.maxRetries}`);
+      const {artifact: targetArtifact} = await artifactClient.getArtifact(
+        inputs.name,
+        options
+      )
+      if (targetArtifact) {
+        downloaded = true;
 
-    if (!targetArtifact) {
-      throw new Error(`Artifact '${inputs.name}' not found`)
+        core.debug(
+          `Found named artifact '${inputs.name}' (ID: ${targetArtifact.id}, Size: ${targetArtifact.size})`
+        )
+    
+        artifacts = [targetArtifact]
+
+        break;
+      } else {
+        await sleep(inputs.retryDelayMs)
+      }
     }
 
-    core.debug(
-      `Found named artifact '${inputs.name}' (ID: ${targetArtifact.id}, Size: ${targetArtifact.size})`
-    )
-
-    artifacts = [targetArtifact]
+    if (!downloaded) {
+      throw new Error(`Artifact '${inputs.name}' not downloaded after ${inputs.maxRetries} attempts`)
+    }
   } else {
     const listArtifactResponse = await artifactClient.listArtifacts({
       latest: true,
