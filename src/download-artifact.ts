@@ -66,15 +66,15 @@ async function run(): Promise<void> {
     
     let downloaded = false;
     for (let i = 0; i < inputs.maxRetries; i++) {
-      core.debug(`Artifact ${inputs.name} download attempt ${i}/${inputs.maxRetries}`);
+      core.info(`Artifact ${inputs.name} download attempt ${i}/${inputs.maxRetries}`);
       const {artifact: targetArtifact} = await artifactClient.getArtifact(
         inputs.name,
         options
       )
-      if (targetArtifact) {
+      if (targetArtifact.createdAt) {
         downloaded = true;
 
-        core.debug(
+        core.info(
           `Found named artifact '${inputs.name}' (ID: ${targetArtifact.id}, Size: ${targetArtifact.size})`
         )
     
