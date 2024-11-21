@@ -65,13 +65,14 @@ async function run(): Promise<void> {
     const sleep = (ms) => new Promise(r => setTimeout(r, ms))
     
     let downloaded = false;
-    for (let i = 0; i < inputs.maxRetries; i++) {
+    for (let i = 1; i <= inputs.maxRetries; i++) {
       core.info(`Artifact ${inputs.name} download attempt ${i}/${inputs.maxRetries}`);
-      const {artifact: targetArtifact} = await artifactClient.getArtifact(
-        inputs.name,
-        options
-      )
-      if (targetArtifact.createdAt) {
+      
+      try {
+        const {artifact: targetArtifact} = await artifactClient.getArtifact(
+          inputs.name,
+          options
+        )
         downloaded = true;
 
         core.info(
@@ -79,9 +80,9 @@ async function run(): Promise<void> {
         )
     
         artifacts = [targetArtifact]
-
         break;
-      } else {
+      } catch (e) {
+        core.info(`Artifact ${inputs.name} download attempt ${i}/${inputs.maxRetries} failed: ${e}`);
         await sleep(inputs.retryDelayMs)
       }
     }
